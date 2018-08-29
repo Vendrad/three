@@ -1,7 +1,7 @@
 
 var HORIZONTAL = 5;
 var VERTICAL = 5;
-var STREAM_LENGTH = 2;
+var STREAM_LENGTH = 1;
 var BLOCK_WIDTH = 100;
 var BLOCK_HEIGHT = 100;
 
