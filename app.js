@@ -166,8 +166,9 @@ function Board() {
 	
 	this.moveEnemies = function () {
 		
-		// Running in reverse order as possible splice causes iteration issues
-		// Enemies now hitting each other in the back when moving
+		// Hacky response from moveEnemy returns false for enemy not moved. In this version of the game we can
+		// assume they haven't moved because they are dead and therefore sliced from this.enemies. To ensure no
+		// Enemies are missed in this loop we drop the index 1 under these conditions
 		for (var i = 0; i < this.enemies.length; i++) {
 			if(!this.moveEnemy(this.enemies[i])) {
 				i--;
