@@ -1,143 +1,310 @@
-
+var INFO_SIZE = '2em';
 var HORIZONTAL = 5;
-var VERTICAL = 5;
+var VERTICAL = 10;
+var ENEMY_VERTICAL = 5;
 var STREAM_LENGTH = 1;
-var BLOCK_WIDTH = 100;
-var BLOCK_HEIGHT = 100;
+var POSITION_WIDTH = 50;
+var POSITION_HEIGHT = 50;
 
-function start() {
-	var info = document.getElementById('info');
-	info.style.width = HORIZONTAL * BLOCK_WIDTH + 'px';
-	info.style.height = BLOCK_HEIGHT + 'px';
-	
-	var stream = document.getElementById('stream');
-	stream.style.width = STREAM_LENGTH * BLOCK_WIDTH + 'px';
-	stream.style.height = BLOCK_HEIGHT + 'px';
-	
-	var game = document.getElementById('game');
-	game.style.width = HORIZONTAL * BLOCK_WIDTH + 'px';
-	game.style.height = VERTICAL * BLOCK_HEIGHT + 'px';
-	
-}
+var Info = new Info();
+var Stream = new Stream();
+var Board = new Board();
+Board.setupBoard();
+
 
 function defined(i) {
 	return typeof i !== 'undefined';
 }
 
+function randb(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function Info() {
-	score = 0;
-	moves = 0;
-	var info = document.getElementById('info');
-	setInfo();
+	var score = 0;
+	var moves = 0;
+	this.element;
+	
+	this.construct = function () {
+		
+		this.element = this.initElement();
+		
+		this.setInfo();
+
+	}
+	
+	this.initElement = function () {
+		
+		var element = document.getElementById('info');
+		element.style.width = HORIZONTAL * POSITION_WIDTH + 'px';
+		
+		return element
+	
+	}
 	
 	this.setScore = function () {
-		score = Blocks.sumTokens();
-		setInfo();
+		score = Board.sumTokenValues();
+		this.setInfo();
 	}
 	
 	this.incrementMoves = function () {
 		moves++;
-		setInfo();
+		this.setInfo();
 	}
 	
-	function setInfo () {
-		info.innerHTML = 'Score: ' + score + '<br>Moves: ' + moves;
+	this.setInfo = function () {
+		this.element.innerHTML = 'Score: ' + score + '<br>Moves: ' + moves;
 	}
+	
+	this.construct();
+	
 }
 
-function Blocks() {
-	blocks = [];
+function Board() {
 	
-	this.addBlock = function (x, y, block) {
-		if (!defined(blocks[x])) {
-			blocks[x] = [];
-		}
-		blocks[x][y] = block;
+	var positions = [];
+	this.enemies = [];
+	this.element;
+	
+	this.construct = function () {
+		
+		this.element = this.initElement();
+
 	}
 	
-	this.getBlock = function (x, y) {
-		if (!defined(blocks[x])) {
+	this.initElement = function () {
+		
+		var element = document.getElementById('game');
+		element.style.width = HORIZONTAL * POSITION_WIDTH + 'px';
+		element.style.height = VERTICAL * POSITION_HEIGHT + 'px';
+		
+		return element
+	
+	}
+	
+	this.setupBoard = function () {
+				
+		for (var y = 0; y < VERTICAL; y++) {
+			for (var x = 0; x < HORIZONTAL; x++) {
+				this.createPosition(x, y);
+			}
+		}
+
+	}
+	
+	this.createPosition = function (x, y) {
+		if (!defined(positions[x])) {
+			positions[x] = [];
+		}
+		positions[x][y] = new Position(x, y);
+		this.element.appendChild(positions[x][y].element);
+	}
+	
+	this.getPosition = function (x, y) {
+		if (this.positionDoesntExist(x, y)) {
 			return false;
 		}
-		return blocks[x][y];
-	};
-	
-	this.getTokenValue = function (x, y) {
-		if (defined(blocks[x]) 
-			&& defined(blocks[x][y])
-			&& defined(blocks[x][y].token)) {
-			return blocks[x][y].token.value;
-		}
+		return positions[x][y];
 	}
 	
-	this.sumTokens = function () {
+	this.positionExists = function (x, y) {
+		if (!defined(positions[x]) || !defined(positions[x][y])) {
+			return false;
+		}
+		return true;
+	}
+	
+	this.positionDoesntExist = function (x, y) {
+		return !this.positionExists(x, y);
+	}
+	
+	this.positionHasToken = function (x, y) {
+		return defined(this.getPosition(x, y).token);
+	}
+	
+	this.tokenValueAt = function (x, y) {
+		if (this.positionHasToken(x, y)) {
+			return this.getPosition(x, y).token.value;
+		}
+		return 0;
+	}
+	
+	this.sumTokenValues = function () {
 		sum = 0;
-		for (var i = 0; i < VERTICAL; i++) {
-			for (var o = 0; o < HORIZONTAL; o++) {
-				if (defined(this.getBlock(o, i).token)) {
-					sum += this.getBlock(o, i).token.value;
-				}
+		for (var y = 0; y < VERTICAL; y++) {
+			for (var x = 0; x < HORIZONTAL; x++) {
+				sum += this.tokenValueAt(x, y);
 			}
 		}
 		return sum;
 	}
 	
-	for (var i = 0; i < VERTICAL; i++) {
-		for (var o = 0; o < HORIZONTAL; o++) {
-			this.addBlock(o, i, new Block(o, i));
+	this.moveToken = function (token, x, y) {
+		
+		if (defined(token.x)) {
+			this.getPosition(token.x, token.y).removeToken();
+		}
+		
+		token.x = x;
+		token.y = y;
+		this.getPosition(x, y).setToken(token);
+		
+	}
+	
+	this.enemyTurn = function () {
+		
+		this.moveEnemies();
+		
+		this.createEnemy();
+		
+	}
+	
+	this.moveEnemies = function () {
+		
+		// Running in reverse order as possible splice causes iteration issues
+		// Enemies now hitting each other in the back when moving
+		for (var i = 0; i < this.enemies.length; i++) {
+			if(!this.moveEnemy(this.enemies[i])) {
+				i--;
+			}
 		}
 	}
-};
+	
+	this.moveEnemy = function (enemy) {
+		
+		xTarget = enemy.x;
+		yTarget = enemy.y - 1;
+		
+		if (this.positionDoesntExist(xTarget, yTarget)) {
+			alert('game over. code a better game over too!');
+		}
+		
+		var targetPosition = this.getPosition(xTarget, yTarget)
+		
+		if (targetPosition.hasPlayerToken()) {
+			// resolve conflict
+			// future versions may include a no kill scenario or target positions actually being another enemy
+			targetPosition.token.takeDamage(enemy.value);
+			enemy.takeDamage(targetPosition.token.value);
+			
+			if (targetPosition.token.health <= 0) {
+				targetPosition.removeToken();
+			}
+			
+		}
+		
+		if (enemy.health <= 0) {
+			
+			this.removeEnemy(enemy);
+			return false;
+			
+		}
+			
+		this.moveToken(enemy, targetPosition.x, targetPosition.y);
+		
+		return true;
+		
+	}
+	
+	this.createEnemy = function () {
+		var token = new Token('enemy');
+		x = randb(0, HORIZONTAL - 1);
+		y = VERTICAL - 1;
+		this.enemies.push(token);
+		this.moveToken(token, x, y);
+	}
+	
+	this.removeEnemy = function (token) {
+		
+		for (var i = 0; i < this.enemies.length; i++) {
+			if (this.enemies[i].x === token.x && this.enemies[i].y === token.y) {
+				this.enemies.splice(i, 1);
+				this.getPosition(token.x, token.y).removeToken();
+				return;
+			}
+		}
+		
+	}
+	
+	this.construct()
+	
+}
 
-function Block(x, y) {
-	
-	function click() {
-		if (!defined(this.token)) {
-			this.setToken(Stream.take());
-		}
-	}
-	
-	this.setup = function() {
-		block = document.createElement('div');
-		block.style.width = BLOCK_WIDTH + 'px';
-		block.style.height = BLOCK_HEIGHT + 'px';
-		block.style.lineHeight = BLOCK_HEIGHT + 'px';
-		block.className = 'block ' + this.x + '-' + this.y;
-		document.getElementById('game').appendChild(block);
-		block.addEventListener('click', click.bind(this));
-		return block;
-	
-	}
+function Position(x, y) {
 	
 	this.x = x;
 	this.y = y;
-	this.block = this.setup();
+	this.element;
+	this.type;
 	this.token;
 	
-	this.setToken = function(token) {
+	this.construct = function () {
+		
+		this.type = this.setType();
+		this.element = this.initElement();
+		
+		if (this.type === 'player') {
+			this.element.addEventListener('click', click.bind(this));
+		}
+
+	}
+	
+	this.setType = function () {
+		if (this.y < VERTICAL - ENEMY_VERTICAL) {
+			return 'player';
+		}
+		return 'enemy';
+	}
+	
+	this.initElement = function () {
+		var element = document.createElement('div');
+		element.style.width = POSITION_WIDTH + 'px';
+		element.style.height = POSITION_HEIGHT + 'px';
+		element.style.lineHeight = POSITION_HEIGHT + 'px';
+		element.className = this.buildClasses();
+		
+		return element;
+	}
+	
+	this.buildClasses = function () {
+		var classes = ['position', this.type + '-area'];
+		return classes.join(' ');
+	}
+	
+	function click() {
+		if (!defined(this.token)) {
+			Board.moveToken(Stream.take(), this.x, this.y);
+			Board.enemyTurn();
+			Info.setScore();
+			Info.incrementMoves();
+		}
+	}
+	
+	this.setToken = function (token) {
 		this.token = token;
-		this.block.innerHTML = token.value;
+		this.element.appendChild(token.element);
 		this.checkToken();
-		Info.setScore();
-		Info.incrementMoves();
 	}
 	
-	this.removeToken = function() {
+	this.removeToken = function () {
+		this.token.element.remove();
 		delete this.token;
-		this.block.innerHTML = '';
 	}
 	
-	this.checkToken = function() {
-		// 3rd to 9th as combination
-		// Check around each found for more
+	this.checkToken = function () {
+		// Future versions may include enemy upgrading
+		if (this.token.type ==='enemy') {
+			return;
+		}
+		
 		var found = [];
 		check(this.x, this.y, this.token.value);
 		
 		if (found.length >= 3) {
-			token = this.token.upgrade();
+			token = this.token.upgrade(found.length);
 			this.setToken(token);
 			for (var i = 1; i < found.length; i++) {
-				Blocks.getBlock(found[i].x, found[i].y).removeToken()
+				Board.getPosition(found[i].x, found[i].y).removeToken()
 			}
 		}
 		
@@ -145,8 +312,11 @@ function Block(x, y) {
 			if (x < 0 || y < 0 || x >= HORIZONTAL || y >= VERTICAL) {
 				return;
 			}
-			if (Blocks.getTokenValue(x, y) !== value) {
-				return
+			if (Board.tokenValueAt(x, y) !== value) {
+				return;
+			}
+			if (Board.getPosition(x, y).token.type === 'enemy') {
+				return;
 			}
 			if (alreadyFound(x, y)) {
 				return;
@@ -179,64 +349,140 @@ function Block(x, y) {
 		
 	}
 	
+	this.hasPlayerToken = function () {
+		if (defined(this.token)) {
+			return this.token.type === 'player';
+		}
+	}
+	
+	this.construct();
+	
 }
 
 function Stream() {
 	var upcoming = [];
+	this.element;
+	
+	this.construct = function () {
+		
+		this.element = this.initElement();
+		
+		for (var i = 0; i < STREAM_LENGTH; i++) {
+			this.add();
+		}
+
+	}
+	
+	this.initElement = function () {
+		
+		var element = document.getElementById('stream');
+		element.style.width = STREAM_LENGTH * POSITION_WIDTH + 'px';
+		element.style.height = POSITION_HEIGHT + 'px';
+	
+		return element
+	
+	}
 	
 	function removeNext() {
-		upcoming[0].block.remove();
+		upcoming[0].element.remove();
 		return upcoming.shift().token;
 	}
 	
 	this.add = function () {
 		
-		var block = document.createElement('div');
-		block.style.width = BLOCK_WIDTH + 'px';
-		block.style.height = BLOCK_HEIGHT + 'px';
-		block.style.lineHeight = BLOCK_HEIGHT + 'px';
-		block.className = 'block';
-		document.getElementById('stream').appendChild(block);
+		var element = document.createElement('div');
+		element.style.width = POSITION_WIDTH + 'px';
+		element.style.height = POSITION_HEIGHT + 'px';
+		element.style.lineHeight = POSITION_HEIGHT + 'px';
+		element.className = 'position';
+		this.element.appendChild(element);
 		
-		var token = new Token();
-		upcoming.push({block: block, token: token})
+		var token = new Token('player');
+		element.appendChild(token.element);
 		
-		block.innerHTML = token.value;
+		upcoming.push({element: element, token: token})
 		
-	};
+	}
 	
 	this.take = function () {
 		this.add();
 		return removeNext();
-	};
-	
-	for (var i = 0; i < STREAM_LENGTH; i++) {
-		this.add();
 	}
+	
+	this.construct();
 	
 }
 
-function Token() {
-	this.value = (function() {
-		var num = Math.random();
-		if (num <= 0.62) { return 1; }
-		if (num <= 0.82) { return 3; }
-		if (num <= 0.92) { return 9; }
-		if (num <= 0.97) { return 27; }
-		if (num <= 0.99) { return 81; }
-		return 243;
-	})();
+function Token(type) {
 	
-	this.upgrade = function () {
+	this.type = type;
+	this.value;
+	this.health;
+	this.x;
+	this.y;
+
+	this.construct = function () {
+		
+		this.value = setValue(this.type);
+		this.health = this.value;
+		this.element = this.initElement();
+		this.setVisual();
+		
+	}
+	
+	this.initElement = function () {
+		var element = document.createElement('div');
+		element.className = this.buildClasses();
+		
+		
+		return element;
+	}
+	
+	this.buildClasses = function () {
+		var classes = ['token', this.type, this.type + this.value];
+		return classes.join(' ');
+	}
+	
+	this.setVisual = function () {
+		this.element.innerHTML = '<span class="value">' + this.value + '</span><span class="health">' + this.health + '</span>';
+	}
+	
+	this.upgrade = function (number_combined) {
+		this.health = this.value * number_combined;
 		this.value = this.value * 3;
+		this.setVisual();
 		return this;
 	}
 	
+	this.takeDamage = function (damage) {
+		this.health -= damage;
+		this.setVisual();
+	}
+	
+	function setValue (type) {
+		var num = Math.random();
+		
+		if (type !== 'player') {
+			if (num <= 0.70) { return 1; }
+			if (num <= 0.95) { return 3; }
+			if (num <= 0.99) { return 9; }
+			if (num <= 0.999) { return 27; }
+			if (num <= 0.9999) { return 81; }
+			return 243;
+		}
+		
+		if (num <= 0.70) { return 1; }
+		if (num <= 0.95) { return 3; }
+		if (num <= 0.99) { return 9; }
+		if (num <= 0.999) { return 27; }
+		if (num <= 0.9999) { return 81; }
+		return 243;
+		
+	}
+	
+	this.construct();
+	
 }
-Blocks = new Blocks();
-Stream = new Stream();
-Info = new Info();
-start();
 
 
 
