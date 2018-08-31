@@ -47,6 +47,11 @@ function Info() {
 		this.setInfo();
 	}
 	
+	this.incrementScore = function (value) {
+		score += value;
+		this.setInfo();
+	}
+	
 	this.incrementMoves = function () {
 		moves++;
 		this.setInfo();
@@ -176,7 +181,7 @@ function Board() {
 		yTarget = enemy.y - 1;
 		
 		if (this.positionDoesntExist(xTarget, yTarget)) {
-			alert('game over. code a better game over too!');
+			alert('game over. code a better game over too! (refresh browser to start over)');
 		}
 		
 		var targetPosition = this.getPosition(xTarget, yTarget)
@@ -220,6 +225,7 @@ function Board() {
 			if (this.enemies[i].x === token.x && this.enemies[i].y === token.y) {
 				this.enemies.splice(i, 1);
 				this.getPosition(token.x, token.y).removeToken();
+				Info.incrementScore(token.value);
 				return;
 			}
 		}
@@ -275,7 +281,6 @@ function Position(x, y) {
 		if (!defined(this.token)) {
 			Board.moveToken(Stream.take(), this.x, this.y);
 			Board.enemyTurn();
-			Info.setScore();
 			Info.incrementMoves();
 		}
 	}
@@ -464,11 +469,12 @@ function Token(type) {
 		
 		if (type !== 'player') {
 			if (num <= 0.70) { return 1; }
+			return 3;
 			if (num <= 0.95) { return 3; }
 			if (num <= 0.99) { return 9; }
-			if (num <= 0.999) { return 27; }
-			if (num <= 0.9999) { return 81; }
-			return 243;
+			if (num <= 0.999) { return 9; }
+			if (num <= 0.9999) { return 9; }
+			return 9;
 		}
 		
 		if (num <= 0.70) { return 1; }
